@@ -8,5 +8,5 @@ import (
 
 func SetUpRouter(router *gin.Engine) {
 	router.GET("/ping", controllers.Pong)
-	AddWorkspaceRouter(router.Group(""))
+	AddWorkspaceRouter(router.Group("/workspace"))
 }
