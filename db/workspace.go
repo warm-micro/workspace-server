@@ -1,14 +1,17 @@
 package db
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type Member struct {
 	gorm.Model
-	UserId uint
+	Username   string
+	Workspaces []*Workspace `gorm:"many2many:workspaces_members"`
 }
 
 type Workspace struct {
 	gorm.Model
-	Name    string
+	Name    string    `form:"name"`
 	Members []*Member `gorm:"many2many:workspaces_members"`
 }

@@ -8,13 +8,10 @@ import (
 	"net/http"
 	"time"
 	"wm/workspace/config"
+	"wm/workspace/db"
 
 	"github.com/gin-gonic/gin"
 )
-
-type CheckResponse struct {
-	message bool
-}
 
 func ListWorkspace(c *gin.Context) {
 	userId, _ := c.GetQuery("userId")
@@ -22,7 +19,6 @@ func ListWorkspace(c *gin.Context) {
 		Timeout: 10 * time.Second,
 	}
 	jwt := c.GetHeader("Authorization")
-	fmt.Println("jwt: ", jwt)
 	req, err := http.NewRequest("GET", config.ACCOUNT_SERVICE+"/user/exists?userId="+userId, nil)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -41,7 +37,6 @@ func ListWorkspace(c *gin.Context) {
 	}
 	json.Unmarshal([]byte(body), &checkResponse)
 
-	fmt.Println("message: ", checkResponse)
 	if response.StatusCode != 200 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "wrong userId",
@@ -49,15 +44,45 @@ func ListWorkspace(c *gin.Context) {
 		})
 		return
 	}
-
-	// var workspaces []db.Workspace
+	var member db.Member
+	username, err := getUserIdFromJWT(c.GetHeader("Authorization"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "jwt user id is wrong",
+			"body":    "",
+		})
+		return
+	}
+	db.DB.Preload("Workspaces").Where("username = ?", username).First(&member)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "test",
-		"body":    userId,
+		"body":    member.Workspaces,
 	})
 }
 
 func CreateWorkspace(c *gin.Context) {
+	var workspace db.Workspace
+	c.Bind(&workspace)
+	username, err := getUserIdFromJWT(c.GetHeader("Authorization"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "jwt user id is wrong",
+			"body":    "",
+		})
+		return
+	}
+	var member db.Member
+	if err := db.DB.Where("username = ? ", username).First(&member).Error; err != nil {
+		member = db.Member{Username: username}
+		db.DB.Create(&member)
+	}
 
+	workspace.Members = append(workspace.Members, &member)
+	db.DB.Create(&workspace)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": workspace.Name + " created",
+		"body":    workspace,
+	})
 }
