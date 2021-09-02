@@ -86,3 +86,27 @@ func CreateWorkspace(c *gin.Context) {
 		"body":    workspace,
 	})
 }
+
+func CheckWorkspace(c *gin.Context) {
+	workspaceId, ok := c.GetQuery("workspaceId")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "workspace Id is required",
+			"body":    "",
+		})
+		return
+	}
+
+	var workspace db.Workspace
+	var check bool
+
+	if err := db.DB.Where("ID = ?", workspaceId).First(&workspace).Error; err != nil {
+		check = false
+	} else {
+		check = true
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": check,
+	})
+}

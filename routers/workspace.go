@@ -9,4 +9,5 @@ import (
 func AddWorkspaceRouter(router *gin.RouterGroup) {
 	router.GET("", controllers.ListWorkspace)
 	router.POST("/", controllers.CreateWorkspace)
+	router.GET("/exists", controllers.CheckWorkspace)
 }
