@@ -1,8 +1,12 @@
 package middlewares
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 	"wm/workspace/config"
 
@@ -21,6 +25,22 @@ func Logger() gin.HandlerFunc {
 		log.Print(status)
 		path := c.FullPath()
 		log.Println(path)
+
+		data := url.Values{
+			"api":     {path},
+			"status":  {strconv.Itoa(status)},
+			"latency": {latency.String()},
+		}
+
+		resp, err := http.PostForm(config.LOGGER_SERVICE+"/log", data)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var res map[string]interface{}
+
+		json.NewDecoder(resp.Body).Decode(&res)
 	}
 }
 
