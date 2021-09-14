@@ -14,4 +14,5 @@ type Workspace struct {
 	gorm.Model
 	Name    string    `form:"name"`
 	Members []*Member `gorm:"many2many:workspaces_members"`
+	Code    string    `gorm:"unique"`
 }

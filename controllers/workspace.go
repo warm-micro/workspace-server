@@ -1,49 +1,16 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"math/rand"
 	"net/http"
 	"time"
-	"wm/workspace/config"
 	"wm/workspace/db"
 
 	"github.com/gin-gonic/gin"
 )
 
 func ListWorkspace(c *gin.Context) {
-	userId, _ := c.GetQuery("userId")
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	jwt := c.GetHeader("Authorization")
-	req, err := http.NewRequest("GET", config.ACCOUNT_SERVICE+"/user/exists?userId="+userId, nil)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	req.Header.Add("Authorization", jwt)
-	response, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	defer response.Body.Close()
-
-	var checkResponse map[string]interface{}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	json.Unmarshal([]byte(body), &checkResponse)
-
-	if response.StatusCode != 200 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "wrong userId",
-			"body":    userId,
-		})
-		return
-	}
 	var member db.Member
 	username, err := getUserIdFromJWT(c.GetHeader("Authorization"))
 	if err != nil {
@@ -53,11 +20,13 @@ func ListWorkspace(c *gin.Context) {
 		})
 		return
 	}
-	db.DB.Preload("Workspaces").Where("username = ?", username).First(&member)
+	db.DB.Where("username = ?", username).First(&member)
 
+	var workspaces []db.Workspace
+	db.DB.Model(&member).Preload("Members").Association("Workspaces").Find(&workspaces)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "test",
-		"body":    member.Workspaces,
+		"body":    workspaces,
 	})
 }
 
@@ -125,6 +94,71 @@ func DeleteWorkspace(c *gin.Context) {
 	db.DB.Delete(&workspace)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "workspace deleted",
+		"body":    workspace,
+	})
+}
+
+func CreateInviteCode(c *gin.Context) {
+	workspaceId := c.PostForm("workspaceId")
+	var workspace db.Workspace
+
+	err := db.DB.Where("ID = ?", workspaceId).First(&workspace).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "wrong workspace id",
+			"body":    nil,
+		})
+		return
+	}
+	rand.Seed(time.Now().UnixNano())
+	code := rand.Intn(8999) + 1000
+	workspace.Code = fmt.Sprint(code)
+	err = db.DB.Save(&workspace).Error
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	for err != nil {
+		rand.Seed(time.Now().UnixNano())
+		code := rand.Intn(8999) + 1000
+		workspace.Code = fmt.Sprint(code)
+		err = db.DB.Create(&workspace).Error
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "invited code generated",
+		"body":    workspace.Code,
+	})
+}
+
+func AcceptInvite(c *gin.Context) {
+	inviteCode := c.PostForm("code")
+	var workspace db.Workspace
+	err := db.DB.Where("code = ?", inviteCode).First(&workspace).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"meesage": "wrong code",
+			"body":    inviteCode,
+		})
+		return
+	}
+	var member db.Member
+	username, err := getUserIdFromJWT(c.GetHeader("Authorization"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "jwt user id is wrong",
+			"body":    "",
+		})
+		return
+	}
+	err = db.DB.Where("username = ?", username).First(&member).Error
+	if err != nil {
+		member = db.Member{Username: username}
+		db.DB.Create(&member)
+	}
+	workspace.Members = append(workspace.Members, &member)
+	db.DB.Save(&workspace)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "invite accepted",
 		"body":    workspace,
 	})
 }
