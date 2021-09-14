@@ -25,11 +25,13 @@ func Logger() gin.HandlerFunc {
 		log.Print(status)
 		path := c.FullPath()
 		log.Println(path)
-
+		method := c.Request.Method
+		log.Println(method)
 		data := url.Values{
 			"api":     {path},
 			"status":  {strconv.Itoa(status)},
 			"latency": {latency.String()},
+			"method":  {method},
 		}
 
 		resp, err := http.PostForm(config.LOGGER_SERVICE+"/log", data)
