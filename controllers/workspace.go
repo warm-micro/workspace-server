@@ -113,17 +113,18 @@ func CheckWorkspace(c *gin.Context) {
 
 func DeleteWorkspace(c *gin.Context) {
 	workspaceId := c.Param("workspaceId")
+	fmt.Println(workspaceId)
 	var workspace db.Workspace
 	if err := db.DB.Where("ID = ?", workspaceId).First(&workspace).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "wrong sprint Id",
+			"message": "wrong workspace Id",
 			"body":    workspaceId,
 		})
 		return
 	}
 	db.DB.Delete(&workspace)
 	c.JSON(http.StatusOK, gin.H{
-		"message": "sprint deleted",
+		"message": "workspace deleted",
 		"body":    workspace,
 	})
 }
