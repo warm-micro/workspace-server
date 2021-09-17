@@ -24,9 +24,21 @@ func ListWorkspace(c *gin.Context) {
 
 	var workspaces []db.Workspace
 	db.DB.Model(&member).Preload("Members").Association("Workspaces").Find(&workspaces)
+	var workspaceRespones []WorksapceResponse
+	for _, workspace := range workspaces {
+		workspaceResponse := NewWorkspaceResponse(workspace)
+		var memberRespones []MemberResponse
+		for _, member := range workspace.Members {
+			fmt.Println(member.Username)
+			memberRespones = append(memberRespones, MemberResponse{Username: member.Username})
+		}
+		workspaceResponse.Members = memberRespones
+		workspaceRespones = append(workspaceRespones, *workspaceResponse)
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "test",
 		"body":    workspaces,
+		"test":    workspaceRespones,
 	})
 }
 
