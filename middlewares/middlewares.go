@@ -19,7 +19,7 @@ func Logger() gin.HandlerFunc {
 		t := time.Now()
 		c.Next()
 
-		latency := time.Since(t)
+		latency := float64(time.Since(t).Microseconds()) / 1000.0
 		log.Print(latency)
 		status := c.Writer.Status()
 		log.Print(status)
@@ -30,7 +30,7 @@ func Logger() gin.HandlerFunc {
 		data := url.Values{
 			"api":     {path},
 			"status":  {strconv.Itoa(status)},
-			"latency": {latency.String()},
+			"latency": {fmt.Sprint(latency)},
 			"method":  {method},
 		}
 
