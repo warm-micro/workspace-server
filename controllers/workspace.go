@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -29,16 +30,57 @@ func ListWorkspace(c *gin.Context) {
 		workspaceResponse := NewWorkspaceResponse(workspace)
 		var memberRespones []MemberResponse
 		for _, member := range workspace.Members {
-			fmt.Println(member.Username)
-			memberRespones = append(memberRespones, MemberResponse{Username: member.Username})
+			req, err := http.NewRequest("GET", "http://3.36.122.92/user/info/"+member.Username, nil)
+			if err != nil {
+				continue
+			}
+			req.Header.Add("Authorization", c.GetHeader("Authorization"))
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			defer resp.Body.Close()
+			var res map[string]interface{}
+			json.NewDecoder(resp.Body).Decode(&res)
+			var id interface{}
+			var username string
+			var nicnkname string
+			var email string
+			var phoneNumber string
+			var body map[string]interface{}
+			body, ok := res["body"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			id, ok = body["id"]
+			if !ok {
+				continue
+			}
+			username, ok = body["username"].(string)
+			if !ok {
+				username = ""
+			}
+			nicnkname, ok = body["nickname"].(string)
+			if !ok {
+				nicnkname = ""
+			}
+			email, ok = body["email"].(string)
+			if !ok {
+				email = ""
+			}
+			phoneNumber, ok = body["phoneNumber"].(string)
+			if !ok {
+				phoneNumber = ""
+			}
+			memberRespones = append(memberRespones, MemberResponse{Id: uint(id.(float64)), Username: username, Nickname: nicnkname, Email: email, PhoneNumber: phoneNumber})
 		}
 		workspaceResponse.Members = memberRespones
 		workspaceRespones = append(workspaceRespones, *workspaceResponse)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "test",
-		"body":    workspaces,
-		"test":    workspaceRespones,
+		"body":    workspaceRespones,
 	})
 }
 
@@ -58,7 +100,9 @@ func CreateWorkspace(c *gin.Context) {
 		member = db.Member{Username: username}
 		db.DB.Create(&member)
 	}
-
+	rand.Seed(time.Now().UnixNano())
+	code := rand.Intn(8999) + 1000
+	workspace.Code = fmt.Sprint(code)
 	workspace.Members = append(workspace.Members, &member)
 	db.DB.Create(&workspace)
 
@@ -103,7 +147,7 @@ func DeleteWorkspace(c *gin.Context) {
 		})
 		return
 	}
-	db.DB.Delete(&workspace)
+	db.DB.Unscoped().Delete(&workspace)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "workspace deleted",
 		"body":    workspace,
@@ -172,5 +216,74 @@ func AcceptInvite(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "invite accepted",
 		"body":    workspace,
+	})
+}
+
+func GetMembers(c *gin.Context) {
+	workspaceId := c.Param("workspaceId")
+	var workspace db.Workspace
+	err := db.DB.Where("ID = ?", workspaceId).Preload("Members").First(&workspace).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "wrong workspace id",
+			"body":    nil,
+		})
+		return
+	}
+	workspaceResponse := NewWorkspaceResponse(workspace)
+	var memberRespones []MemberResponse
+	for _, member := range workspace.Members {
+		fmt.Println(member.Username)
+		req, err := http.NewRequest("GET", "http://3.36.122.92/user/info/"+member.Username, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Add("Authorization", c.GetHeader("Authorization"))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("get user info error")
+			continue
+		}
+		defer resp.Body.Close()
+		var res map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&res)
+		var id interface{}
+		var username string
+		var nicnkname string
+		var email string
+		var phoneNumber string
+		var body map[string]interface{}
+		body, ok := res["body"].(map[string]interface{})
+		fmt.Println(body)
+		if !ok {
+			continue
+		}
+		id, ok = body["id"]
+		if !ok {
+			continue
+		}
+		username, ok = body["username"].(string)
+		if !ok {
+			username = ""
+		}
+		nicnkname, ok = body["nickname"].(string)
+		if !ok {
+			nicnkname = ""
+		}
+		email, ok = body["email"].(string)
+		if !ok {
+			email = ""
+		}
+		phoneNumber, ok = body["phoneNumber"].(string)
+		if !ok {
+			phoneNumber = ""
+		}
+		memberRespones = append(memberRespones, MemberResponse{Id: uint(id.(float64)), Username: username, Nickname: nicnkname, Email: email, PhoneNumber: phoneNumber})
+	}
+	workspaceResponse.Members = memberRespones
+	c.JSON(http.StatusOK, gin.H{
+		"message": "workspace members",
+		"body":    workspaceResponse,
 	})
 }

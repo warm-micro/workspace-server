@@ -13,4 +13,5 @@ func AddWorkspaceRouter(router *gin.RouterGroup) {
 	router.GET("/exists", controllers.CheckWorkspace)
 	router.POST("/inviteCode/", controllers.CreateInviteCode)
 	router.POST("/accept", controllers.AcceptInvite)
+	router.GET("/members/:workspaceId", controllers.GetMembers)
 }
