@@ -147,7 +147,7 @@ func DeleteWorkspace(c *gin.Context) {
 		})
 		return
 	}
-	db.DB.Unscoped().Delete(&workspace)
+	db.DB.Delete(&workspace)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "workspace deleted",
 		"body":    workspace,
